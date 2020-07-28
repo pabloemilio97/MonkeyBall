@@ -1,0 +1,7 @@
+Games: Super Monkey Ball: Banana Blitz
+       Super Monkey Ball: Step & Roll
+Subject: AiAi
+Copyright: Sega, Amusement Vision
+Model Ripper: Random Talking Bush
+Hosting Permissions: The Models Resource
+Notes: Special thanks to ItsEasyActually for the original model importing script, which I modified to import these models correctly.
