@@ -94,7 +94,7 @@ Game.init = function() {
     //Create ground and add it to the scene
     this.ground = new THREE.Mesh(new THREE.BoxGeometry(30, 30, 2),
         new THREE.MeshBasicMaterial({color: 0xffffff}));
-    this.ground.rotation.x = -Math.PI / 2;
+    //this.ground.rotation.x = -Math.PI / 2;
     console.log(this.ground)
     this.groundGroup = new THREE.Group()
     this.groundGroup.add(this.ground)
@@ -139,7 +139,9 @@ Game.initPhysicalWorld = function(){
 
     let test_ground_mesh = new THREE.Mesh(new THREE.BoxGeometry(30, 30, 2), new THREE.MeshBasicMaterial({color: 0x444444}));
     test_ground_mesh.rotation.x = -Math.PI / 2;
-    test_ground_mesh.position.y = 4;
+    //test_ground_mesh.quaternion.setFromAxisAngle( new THREE.Vector3( 0, 1, 0 ), Math.PI / 2 );
+    test_ground_mesh.position.x = 10;
+    test_ground_mesh.position.y = 15;
     test_ground_mesh.position.z = 4;
     this.groundGroup.add(test_ground_mesh);
 
@@ -175,7 +177,7 @@ Game.createShapeFromMesh = function (mesh) {
     console.log(mesh.position)
     shapeWrapper.position = new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z);
 
-    shapeWrapper.quaternion = mesh.geometry.quaternion;
+    shapeWrapper.quaternion = mesh.quaternion;
     
     return shapeWrapper;
 }
@@ -304,18 +306,18 @@ Game.update = function (delta) {
     // Manage tilts
     sensitivity = 60
     if(tiltForward){
-        this.ground.rotation.x -= Math.PI / sensitivity;
+        this.groundGroup.rotation.x -= Math.PI / sensitivity;
     }
     if(tiltBackward){
-        this.ground.rotation.x += Math.PI / sensitivity;
+        this.groundGroup.rotation.x += Math.PI / sensitivity;
     }
     if(tiltLeft){
-        this.ground.rotation.y += Math.PI / sensitivity;
+        this.groundGroup.rotation.z += Math.PI / sensitivity;
     }
     if(tiltRight){
-        this.ground.rotation.y -= Math.PI / sensitivity;
+        this.groundGroup.rotation.z -= Math.PI / sensitivity;
     }
-    this.groundBody.quaternion.copy(this.ground.quaternion)
+    this.groundBody.quaternion.copy(this.groundGroup.quaternion)
     //this.groundBody.angularVelocity.x = Math.PI / 4;
     //this.groundBody.quaternion.setFromAxisAngle( new CANNON.Vec3(1,0,0), Math.PI / 18);
 };
