@@ -1,14 +1,17 @@
 let WIDTH = window.innerWidth;
 let HEIGHT = window.innerHeight;
+
+//Initialize game object
 let Game = {};
+
+//Initialize game controls
 let orbitControls = null;
 let tiltForward = null;
 let tiltLeft = null;
 let tiltBackward = null;
 let tiltRight = null;
-// mesh -> object that is rendered
-// body -> cannon js object
 
+//Events when certain keys are pressed
 Game.onKeyDown = function ( event )
 {
     switch ( event.keyCode ) {
@@ -40,6 +43,7 @@ Game.onKeyDown = function ( event )
 
 }
 
+//Events when certain keys are released
 Game.onKeyUp = function (event) {
     switch( event.keyCode ) {
         case 38: // up
@@ -65,9 +69,8 @@ Game.onKeyUp = function (event) {
     }
 }
 
-/*
-Helper function for loading OBJ models
-*/
+//Helper function for loading OBJ models
+
 Game.load3dModel = function(objModelUrl, mtlModelUrl){
     mtlLoader = new THREE.MTLLoader();
     mtlLoader.load(mtlModelUrl, materials =>{
@@ -86,23 +89,27 @@ Game.load3dModel = function(objModelUrl, mtlModelUrl){
     });
 }
 
-/*
-Fetch canvas, create camera and scene and initial meshes
-*/
+
+//Fetch canvas, create camera and scene and initial meshes
+
 Game.init = function() {
+    //Keeps track of time elapsed
+    this.timestamp = 0;
+
     // setup a WebGL renderer within an existing canvas
     this.canvas = document.getElementById("canvas");
     this.canvas.width = WIDTH;
     this.canvas.height = HEIGHT;
     this._previousElapsed = 0; //For tick
+
     //Renderer settings
     this.renderer = new THREE.WebGLRenderer({canvas: canvas});
     this.renderer.setViewport(0, 0, WIDTH, HEIGHT);
+
     // Turn on shadows
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.BasicShadowMap;
     
-
     // create the scene
     this.scene = new THREE.Scene();
 
@@ -125,7 +132,6 @@ Game.init = function() {
     this.grassTexture.wrapS = THREE.RepeatWrapping;
     this.grassTexture.wrapT = THREE.RepeatWrapping;
     this.grassTexture.repeat.set( 8, 16 );
-
     this.grassMaterial = new THREE.MeshLambertMaterial({map: this.grassTexture});
 
     //Set ground bump map
@@ -136,6 +142,7 @@ Game.init = function() {
     this.ground.rotation.x = -Math.PI / 2;
     this.groundGroup = new THREE.Group()
     this.groundGroup.add(this.ground)
+
     //Set up shadows for ground
     this.ground.castShadow = true;
     this.ground.receiveShadow = true;
@@ -145,6 +152,7 @@ Game.init = function() {
     this.sphere = new THREE.Mesh(new THREE.SphereGeometry( 8, 32, 32 ),
     new THREE.MeshPhongMaterial({map: sphereTexture, transparent: true, opacity: 0.6}));
     this.scene.add(this.sphere);
+
     //Set up shadows for ground
     this.sphere.castShadow = true;
     this.sphere.receiveShadow = true;
@@ -169,12 +177,15 @@ Game.init = function() {
     console.log(this.obstacleMaterial)
 
     //Initialize obstacles
-    this.obstacles = []
+    this.obstacles = [];
     this.obstacles.push(this.createObstacleMesh(-20, 4, -120, 60, 5, 30));
     this.obstacles.push(this.createObstacleMesh(20, 4, -40, 60, 5, 30));
     this.obstacles.push(this.createObstacleMesh(0, 6, 20, 60, 10, 10));
     this.obstacles.push(this.createObstacleMesh(-25, 4, 60, 10, 5, 70));
     this.obstacles.push(this.createObstacleMesh(25, 4, 60, 10, 5, 70));
+
+    //Initialize barrel meshes array
+    this.barrelMeshes = [];
 
     //Create goal
     this.goalTexture = new THREE.TextureLoader().load("../assets/goalFlag.jpg");
@@ -193,8 +204,6 @@ Game.init = function() {
     spotlight.shadow.camera.near = 500;
     spotlight.shadow.camera.far = 1000;
     spotlight.shadow.camera.fov = 30;
-    // let spotlightHelper = new THREE.SpotLightHelper(spotlight, 0x000000);
-    // this.scene.add( spotlightHelper );
     spotlight.position.set(0, 600, -300);
     spotlight.rotation.x = -Math.PI / 4;
     spotlight.castShadow = true;
@@ -203,7 +212,6 @@ Game.init = function() {
 
     //Manage if player won
     this.won = false;
-
 
     //Event listeners for controls
     document.addEventListener( "keydown", this.onKeyDown, false );
@@ -222,6 +230,7 @@ Game.init = function() {
     window.requestAnimationFrame(this.tick);
 }
 
+//Sets up physical bodies for obstacles in course
 Game.createObstacleMesh = function(px, py, pz, bx, by, bz) {
     obstacleMesh = new THREE.Mesh(new THREE.BoxGeometry(bx, by, bz),
         this.obstacleMaterial);
@@ -235,8 +244,9 @@ Game.createObstacleMesh = function(px, py, pz, bx, by, bz) {
     return obstacleMesh;
 }
 
+//Resets player position and world settings
 Game.reset = function(){
-    //reset sphere
+    //Reset sphere
     this.world.remove(this.sphereBody);
     this.sphereBody = this.addMovingBody(this.sphere, {mass: 10}, 
         {x: this.sphereInitialPosition.x,
@@ -244,14 +254,16 @@ Game.reset = function(){
         z: this.sphereInitialPosition.z}
     );
 
-    //reset ground
+    //Reset ground
     //Create ground and add it to the scene
     this.groundGroup.rotation.set(0, 0, 0);
     this.groundBody.quaternion.copy(this.groundGroup.quaternion);
     console.log(this.groundBody.quaternion);
 }
 
+//Creates the phyisical world and initializes the bodies of the shapes within
 Game.initPhysicalWorld = function(groundMeshes){
+    //Creates cannon world
     const world = new CANNON.World();
     this.world = world;
     this.fixedTimeStep = 1.0/60.0;
@@ -268,14 +280,19 @@ Game.initPhysicalWorld = function(groundMeshes){
         this.groundShapes.push(shape)
     });
 
+    //Creates physical bodies for each type of shape
     this.groundBody = this.addStaticBody(this.groundShapes);
     this.sphereBody = this.addMovingBody(this.sphere, {mass: 10}, 
         {x: this.sphereInitialPosition.x,
         y: this.sphereInitialPosition.y,
         z: this.sphereInitialPosition.z}
     );
+
+    //Initialize array for barrel bodies
+    this.barrelBodies = [];
 };
 
+//Creates a bounding box from a mesh for a specific shape
 Game.createShapeFromMesh = function (mesh) {
     let shape;
     mesh.geometry.computeBoundingBox();
@@ -294,42 +311,54 @@ Game.createShapeFromMesh = function (mesh) {
     return shapeWrapper;
 }
 
-
+//Creates a body for moving objects
 Game.addMovingBody = function (mesh, bodyOptions, position) {
     let shape;
-    // create a Sphere shape for spheres and thorus knots,
-    // a Box shape otherwise
+    //Create a bounding sphere, else a box
     if (mesh.geometry.type === 'SphereGeometry'){
         mesh.geometry.computeBoundingSphere();
         shape = new CANNON.Sphere(mesh.geometry.boundingSphere.radius);
     }
-    else {
+    else { //Remove if unused
         mesh.geometry.computeBoundingBox();
         let box = mesh.geometry.boundingBox;
-        shape = new CANNON.Box(new CANNON.Vec3(
-            (box.max.x - box.min.x) / 2,
-            (box.max.y - box.min.y) / 2,
-            (box.max.z - box.min.z) / 2
-        ));
+        shape = new CANNON.Cylinder(
+            // (box.max.x - box.min.x) / 2,
+            // (box.max.x - box.min.x) / 2,
+            // (box.max.y - box.min.y) / 2, 
+            // 15
+            5, 5, 10, 32
+        );
     }
+
+    //Make body position equal to the object position
     let material = new CANNON.Material();
     bodyOptions.material = material;
     let body = new CANNON.Body(bodyOptions);
-    body.addShape(shape);
     body.linearDamping = this.damping;
     body.position.x = position.x;
     body.position.y = position.y;
     body.position.z = position.z;
     body.computeAABB();
+    
     // keep a reference to the mesh so we can update its properties later
     body.mesh = mesh;
 
     let material_ground = new CANNON.ContactMaterial(this.groundMaterial, material, { friction: 1.0, restitution: 0.1});
     this.world.addContactMaterial(material_ground);
     this.world.addBody(body);
+    if(mesh.geometry.type === 'CylinderGeometry'){
+        this.barrelBodies.push(body);
+        body.addShape(shape, new CANNON.Vec3(0, 0, 0), mesh.quaternion);
+        body.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), Math.PI/2);
+    }
+    else{
+        body.addShape(shape);
+    }
     return body;
 };
 
+//Creates a body for static objects
 Game.addStaticBody = function(shapes){
     let body = new CANNON.Body({mass: 0, material: this.groundMaterial});
 
@@ -338,11 +367,11 @@ Game.addStaticBody = function(shapes){
     });
 
     body.computeAABB();
-    //body.angularVelocity.x = 5;
     this.world.add(body);
     return body;
 }
 
+// Updates game by one time unit and calls the update function
 Game.tick = function (elapsed) {
     window.requestAnimationFrame(this.tick);
 
@@ -355,12 +384,48 @@ Game.tick = function (elapsed) {
     this.update(delta);
     this.renderer.render(this.scene, this.camera);
     orbitControls.update();
-    //this.debugRenderer.update();
+    this.debugRenderer.update();
 }.bind(Game);
 
+//Updates game
 Game.update = function (delta) {
+    function _continuous_random_between(min, max){  
+        random = (Math.random() * (max - min)) + min; 
+        return random
+    }
+
     this.timestamp += delta;
     this.world.step(delta);
+
+    //Each 3 seconds create a barrel
+    if(Math.floor(this.timestamp) % 4 == 3){
+        //let cylinderTexture = new THREE.TextureLoader().load("../assets/ball.png");
+        let material = new THREE.MeshBasicMaterial( {color: 0xcccccc} );
+        let cylinder = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 10, 32), material);
+        this.scene.add(cylinder);
+
+        //Set up shadows for ground
+        cylinder.castShadow = true;
+        cylinder.receiveShadow = true;
+        this.barrelMeshes.push(cylinder);
+        cylinder.rotation.x = Math.PI / 2;
+        this.addMovingBody(cylinder, {mass: 100}, 
+            {x: _continuous_random_between(-50, 50),
+            y: _continuous_random_between(50, 70),
+            z: _continuous_random_between(-200, 200)}
+        );
+        
+        this.timestamp = 0;
+    }
+    
+    //Update barrel meshes
+    for(let i = 0; i < this.barrelMeshes.length; i++){
+        let barrelMesh = this.barrelMeshes[i];
+        let barrelBody = this.barrelBodies[i];
+        //barrelMesh.rotation.x = Math.PI / 2;
+        barrelMesh.position.copy(barrelBody.position);
+        barrelMesh.quaternion.copy(barrelBody.quaternion);
+    }
 
     // Sync sphere mesh with body
     this.sphere.position.copy(this.sphereBody.position);
@@ -372,10 +437,10 @@ Game.update = function (delta) {
     }
 
     // Sync camera position with sphere
-    this.camera.position.z = this.sphere.position.z + 100;
-    this.camera.position.y = this.sphere.position.y + 50;
-    this.camera.position.x = this.sphere.position.x;
-    this.camera.lookAt(this.sphere.position.x, this.sphere.position.y, this.sphere.position.z);
+    // this.camera.position.z = this.sphere.position.z + 100;
+    // this.camera.position.y = this.sphere.position.y + 50;
+    // this.camera.position.x = this.sphere.position.x;
+    // this.camera.lookAt(this.sphere.position.x, this.sphere.position.y, this.sphere.position.z);
     
 
     // Manage tilts
@@ -444,6 +509,7 @@ Game.update = function (delta) {
     }
 };
 
+//Initializes game when window loads
 window.onload = function () {
     Game.init();
 };
