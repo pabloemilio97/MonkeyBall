@@ -9,7 +9,7 @@ let tiltRight = null;
 // mesh -> object that is rendered
 // body -> cannon js object
 
-function onKeyDown ( event )
+Game.onKeyDown = function ( event )
 {
     switch ( event.keyCode ) {
 
@@ -34,12 +34,13 @@ function onKeyDown ( event )
             break;
 
         case 32: // space for reset
+            Game.reset();
             break;
     }
 
 }
 
-function onKeyUp( event ) {
+Game.onKeyUp = function (event) {
     switch( event.keyCode ) {
         case 38: // up
         case 87: // w
@@ -120,18 +121,18 @@ Game.init = function() {
     this.scene.background = bgTexture;
 
     //Set ground texture
-    let texture = new THREE.TextureLoader().load("../assets/grass.jpeg");
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set( 8, 16 );
+    this.grassTexture = new THREE.TextureLoader().load("../assets/grass.jpeg");
+    this.grassTexture.wrapS = THREE.RepeatWrapping;
+    this.grassTexture.wrapT = THREE.RepeatWrapping;
+    this.grassTexture.repeat.set( 8, 16 );
 
-    let material = new THREE.MeshLambertMaterial({map: texture});
+    this.grassMaterial = new THREE.MeshLambertMaterial({map: this.grassTexture});
 
     //Set ground bump map
-    material.normalMap = new THREE.TextureLoader().load("../assets/grassNormal.jpeg");  
+    this.grassMaterial.normalMap = new THREE.TextureLoader().load("../assets/grassNormal.jpeg");  
 
     //Create ground and add it to the scene
-    this.ground = new THREE.Mesh(new THREE.BoxGeometry(100, 400, 3), material);
+    this.ground = new THREE.Mesh(new THREE.BoxGeometry(100, 400, 3), this.grassMaterial);
     this.ground.rotation.x = -Math.PI / 2;
     this.groundGroup = new THREE.Group()
     this.groundGroup.add(this.ground)
@@ -139,31 +140,50 @@ Game.init = function() {
     this.ground.castShadow = true;
     this.ground.receiveShadow = true;
 
-
     //Create  player and add it to the scene
     let sphereTexture = new THREE.TextureLoader().load("../assets/ball.png");
     this.sphere = new THREE.Mesh(new THREE.SphereGeometry( 8, 32, 32 ),
     new THREE.MeshPhongMaterial({map: sphereTexture, transparent: true, opacity: 0.6}));
     this.scene.add(this.sphere);
-    this.sphere.position.y = 3.1;
-    this.sphere.position.z = -150;
     //Set up shadows for ground
     this.sphere.castShadow = true;
     this.sphere.receiveShadow = true;
+    this.sphereInitialPosition = {x: 0, y: 10.1, z: -150};
 
     //Load monkey
     this.monkeyLoaded = false;
     this.load3dModel("../assets/monkeyObj.obj", "../assets/monkeyMtl.mtl");
 
-
     //Create bodies
     this.groundMaterial = new CANNON.Material();
     this.groundShapes = []
+
+    //Create obstacle texture
+    this.obstacleTexture = new THREE.TextureLoader().load("../assets/wood.jpeg");
+    this.obstacleNormal = new THREE.TextureLoader().load("../assets/woodNormal.jpg");
+    this.obstacleBump = new THREE.TextureLoader().load("../assets/woodBump.jpg");
+    this.obstacleMaterial = new THREE.MeshLambertMaterial({map: this.obstacleTexture});
+    this.obstacleMaterial.normalMap = this.obstacleNormal;
+    this.obstacleMaterial.bumpMap = this.obstacleBump;
+    this.obstacleMaterial.bumpScale = 10000;
+    console.log(this.obstacleMaterial)
 
     //Initialize obstacles
     this.obstacles = []
     this.obstacles.push(this.createObstacleMesh(-20, 4, -120, 60, 5, 30));
     this.obstacles.push(this.createObstacleMesh(20, 4, -40, 60, 5, 30));
+    this.obstacles.push(this.createObstacleMesh(0, 6, 20, 60, 10, 10));
+    this.obstacles.push(this.createObstacleMesh(-25, 4, 60, 10, 5, 70));
+    this.obstacles.push(this.createObstacleMesh(25, 4, 60, 10, 5, 70));
+
+    //Create goal
+    this.goalTexture = new THREE.TextureLoader().load("../assets/goalFlag.jpg");
+    this.goalMaterial = new THREE.MeshBasicMaterial({map: this.goalTexture});
+    this.goal = new THREE.Mesh(new THREE.BoxGeometry(40, 45, 0.1), this.goalMaterial);
+    this.goal.rotation.x = -Math.PI / 2;
+    this.goal.position.z = 50;
+    this.goal.position.y = 1.5;
+    this.groundGroup.add(this.goal)
 
     //Add light
     let spotlight = new THREE.SpotLight(0xffffff);
@@ -178,24 +198,23 @@ Game.init = function() {
     spotlight.position.set(0, 600, -300);
     spotlight.rotation.x = -Math.PI / 4;
     spotlight.castShadow = true;
+    spotlight.power = 3.5;
     this.scene.add(spotlight);
 
-    //Event listeners for controls
-    document.addEventListener( "keydown", onKeyDown, false );
-    document.addEventListener( "keyup", onKeyUp, false );
+    //Manage if player won
+    this.won = false;
 
-    /*document.addEventListener('keyup', function (event) {
-        if (event.keyCode === 27) { // Jalo hacerlo un reset button
-            event.preventDefault();
-            this.reset();
-        }
-    }.bind(this));*/
+
+    //Event listeners for controls
+    document.addEventListener( "keydown", this.onKeyDown, false );
+    document.addEventListener( "keyup", this.onKeyUp, false );
 
     // Create physical world
     this.scene.add(this.groundGroup);
 
     let groundMeshes = [
         this.ground,
+        this.goal,
         ...this.obstacles,
     ];
     this.initPhysicalWorld(groundMeshes);
@@ -205,7 +224,7 @@ Game.init = function() {
 
 Game.createObstacleMesh = function(px, py, pz, bx, by, bz) {
     obstacleMesh = new THREE.Mesh(new THREE.BoxGeometry(bx, by, bz),
-        new THREE.MeshBasicMaterial({color: 0xffffff}));
+        this.obstacleMaterial);
     this.groundGroup.add(obstacleMesh)
     obstacleMesh.position.x = px;
     obstacleMesh.position.y = py;
@@ -215,6 +234,23 @@ Game.createObstacleMesh = function(px, py, pz, bx, by, bz) {
     obstacleMesh.receiveShadow = true;
     return obstacleMesh;
 }
+
+Game.reset = function(){
+    //reset sphere
+    this.world.remove(this.sphereBody);
+    this.sphereBody = this.addMovingBody(this.sphere, {mass: 10}, 
+        {x: this.sphereInitialPosition.x,
+        y: this.sphereInitialPosition.y,
+        z: this.sphereInitialPosition.z}
+    );
+
+    //reset ground
+    //Create ground and add it to the scene
+    this.groundGroup.rotation.set(0, 0, 0);
+    this.groundBody.quaternion.copy(this.groundGroup.quaternion);
+    console.log(this.groundBody.quaternion);
+}
+
 Game.initPhysicalWorld = function(groundMeshes){
     const world = new CANNON.World();
     this.world = world;
@@ -233,7 +269,11 @@ Game.initPhysicalWorld = function(groundMeshes){
     });
 
     this.groundBody = this.addStaticBody(this.groundShapes);
-    this.sphereBody = this.addMovingBody(this.sphere, {mass: 10});
+    this.sphereBody = this.addMovingBody(this.sphere, {mass: 10}, 
+        {x: this.sphereInitialPosition.x,
+        y: this.sphereInitialPosition.y,
+        z: this.sphereInitialPosition.z}
+    );
 };
 
 Game.createShapeFromMesh = function (mesh) {
@@ -255,8 +295,8 @@ Game.createShapeFromMesh = function (mesh) {
 }
 
 
-Game.addMovingBody = function (mesh, bodyOptions) {
-    var shape;
+Game.addMovingBody = function (mesh, bodyOptions, position) {
+    let shape;
     // create a Sphere shape for spheres and thorus knots,
     // a Box shape otherwise
     if (mesh.geometry.type === 'SphereGeometry'){
@@ -277,9 +317,9 @@ Game.addMovingBody = function (mesh, bodyOptions) {
     let body = new CANNON.Body(bodyOptions);
     body.addShape(shape);
     body.linearDamping = this.damping;
-    body.position.x = mesh.position.x;
-    body.position.y = mesh.position.y;
-    body.position.z = mesh.position.z;
+    body.position.x = position.x;
+    body.position.y = position.y;
+    body.position.z = position.z;
     body.computeAABB();
     // keep a reference to the mesh so we can update its properties later
     body.mesh = mesh;
@@ -315,7 +355,7 @@ Game.tick = function (elapsed) {
     this.update(delta);
     this.renderer.render(this.scene, this.camera);
     orbitControls.update();
-    this.debugRenderer.update();
+    //this.debugRenderer.update();
 }.bind(Game);
 
 Game.update = function (delta) {
@@ -346,7 +386,7 @@ Game.update = function (delta) {
     let frontalCalc = frontalSensitivity * Math.abs(this.sphere.position.z)/100
     frontalSensitivity = Math.max(frontalCalc, frontalSensitivity);
     let frontalAngle = Math.PI / frontalSensitivity;
-    
+
 
     if(tiltForward){
         this.groundGroup.rotation.x -= frontalAngle;
@@ -381,6 +421,27 @@ Game.update = function (delta) {
         }
     }
     this.groundBody.quaternion.copy(this.groundGroup.quaternion)
+
+    let spherePosition = this.sphereBody.position;
+
+    if(this.spotlight.power >= 100){
+        alert("You win");
+        this.spotlight.power = 3.5;
+        this.reset();
+        this.won = false;
+    }
+    if(this.won){
+        this.spotlight.power += 3;
+    }
+    //Check if user reached goal
+    if(spherePosition.z >= 50 && spherePosition.z <= 60
+       && spherePosition.x >= -15 && spherePosition.x <= 15){
+        this.won = true;
+    }
+
+    if(spherePosition.y < -250){
+        this.reset();
+    }
 };
 
 window.onload = function () {
