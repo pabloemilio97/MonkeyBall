@@ -34,8 +34,6 @@ function onKeyDown ( event )
             break;
 
         case 32: // space for reset
-            if ( canJump === true ) velocity.y += 350;
-            canJump = false;
             break;
     }
 
@@ -83,28 +81,60 @@ Game.init = function() {
 
     // create a camera
     this.camera = new THREE.PerspectiveCamera( 45, this.canvas.width / this.canvas.height, 1, 4000 );
-    this.camera.position.z = 45;
-    this.camera.position.y = 25;
+    this.camera.position.z = 400;
+    this.camera.position.y = 300;
+    this.camera.position.x = 150;
     this.scene.add(this.camera);
     this.camera.rotation.set(-Math.PI/8, 0, 0);
 
     //Add orbit controls
     orbitControls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
 
+    //Add light
+    let sunlight = new THREE.AmbientLight( 0xffffff, 1,1000);
+    sunlight.position.set(0, 10, 0);
+    this.scene.add(sunlight);
+
+    //Add sky
+    let bgTexture = new THREE.TextureLoader().load("../assets/sky.jpeg");
+    this.scene.background = bgTexture;
+
+    //Set ground texture
+    let texture = new THREE.TextureLoader().load("../assets/grass.jpeg");
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set( 8, 16 );
+
+    let material = new THREE.MeshPhongMaterial({ map: texture});
+
+    //Set ground bump map
+    material.normalMap = new THREE.TextureLoader().load("../assets/grassNormal.jpeg");  
+
     //Create ground and add it to the scene
-    this.ground = new THREE.Mesh(new THREE.BoxGeometry(30, 30, 2),
-        new THREE.MeshBasicMaterial({color: 0xffffff}));
-    //this.ground.rotation.x = -Math.PI / 2;
+    this.ground = new THREE.Mesh(new THREE.BoxGeometry(100, 400, 3),
+    material);
+    this.ground.rotation.x = -Math.PI / 2;
     console.log(this.ground)
     this.groundGroup = new THREE.Group()
     this.groundGroup.add(this.ground)
-    this.scene.add(this.groundGroup);
 
-    //Create sphere, later player and add it to the scene
-    this.sphere = new THREE.Mesh(new THREE.SphereGeometry( 1, 32, 32 ),
-    new THREE.MeshBasicMaterial({color: 0xddffaa}));
+
+    //Create  player and add it to the scene
+    this.sphere = new THREE.Mesh(new THREE.SphereGeometry( 4, 32, 32 ),
+    new THREE.MeshBasicMaterial({color: 0x000000}));
     this.scene.add(this.sphere);
-    this.sphere.position.y = 5;
+    this.sphere.position.y = 3.1;
+    this.sphere.position.z = -150;
+
+
+    //Create bodies
+    this.groundMaterial = new CANNON.Material();
+    this.groundShapes = []
+
+    //Initialize obstacles
+    this.obstacles = []
+    this.obstacles.push(this.createObstacleMesh(-20, 4, -120, 60, 5, 30));
+    this.obstacles.push(this.createObstacleMesh(20, 4, -40, 60, 5, 30));
 
     //Event listeners for controls
     document.addEventListener( "keydown", onKeyDown, false );
@@ -118,49 +148,46 @@ Game.init = function() {
     }.bind(this));*/
 
     // Create physical world
-    this.initPhysicalWorld();
+    this.scene.add(this.groundGroup);
 
+    let groundMeshes = [
+        this.ground,
+        ...this.obstacles,
+    ];
+    console.log(groundMeshes)
+    this.initPhysicalWorld(groundMeshes);
+    
     window.requestAnimationFrame(this.tick);
 }
 
-Game.initPhysicalWorld = function(){
+Game.createObstacleMesh = function(px, py, pz, bx, by, bz) {
+    obstacleMesh = new THREE.Mesh(new THREE.BoxGeometry(bx, by, bz),
+        new THREE.MeshBasicMaterial({color: 0xffffff}));
+    this.groundGroup.add(obstacleMesh)
+    obstacleMesh.position.x = px;
+    obstacleMesh.position.y = py;
+    obstacleMesh.position.z = pz;
+    return obstacleMesh;
+}
+Game.initPhysicalWorld = function(groundMeshes){
     const world = new CANNON.World();
     this.world = world;
     this.fixedTimeStep = 1.0/60.0;
     this.damping = 0.01;
     
     world.broadphase = new CANNON.NaiveBroadphase();
-    world.gravity.set(0, -10, 0);
+    world.gravity.set(0, -50, 0);
+    
     this.debugRenderer = new THREE.CannonDebugRenderer(this.scene, this.world);
-    
-    //Create bodies
-    this.groundMaterial = new CANNON.Material();
-    let shapes = []
-
-    let test_ground_mesh = new THREE.Mesh(new THREE.BoxGeometry(30, 30, 2), new THREE.MeshBasicMaterial({color: 0x444444}));
-    test_ground_mesh.rotation.x = -Math.PI / 2;
-    //test_ground_mesh.quaternion.setFromAxisAngle( new THREE.Vector3( 0, 1, 0 ), Math.PI / 2 );
-    test_ground_mesh.position.x = 10;
-    test_ground_mesh.position.y = 15;
-    test_ground_mesh.position.z = 4;
-    this.groundGroup.add(test_ground_mesh);
-
+        
     // For each cannon shape we want to associate to a mesh
-    let ground1 = this.createShapeFromMesh(this.ground);
-    let test_ground = this.createShapeFromMesh(test_ground_mesh);
-    
-    shapes.push(ground1);
-    shapes.push(test_ground);
-    this.groundBody = this.addStaticBody(shapes);
+    groundMeshes.forEach(mesh => {
+        shape = this.createShapeFromMesh(mesh);
+        this.groundShapes.push(shape)
+    });
 
-    this.sphereBody = this.addMovingBody(this.sphere, {mass: 5})
-
-    
-    //Iterate over static bodies to add them to global body
-    // let globalBody = new CANNON.Body({mass: 0});
-    // for(i = 0; i < thistaticBodies.length; i++){
-    //     globalBody.add(staticBodies[i]);
-    // }
+    this.groundBody = this.addStaticBody(this.groundShapes);
+    this.sphereBody = this.addMovingBody(this.sphere, {mass: 10});
 };
 
 Game.createShapeFromMesh = function (mesh) {
@@ -174,27 +201,13 @@ Game.createShapeFromMesh = function (mesh) {
     ));
     let shapeWrapper = {}
     shapeWrapper.shape = shape;
-    console.log(mesh.position)
     shapeWrapper.position = new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z);
 
     shapeWrapper.quaternion = mesh.quaternion;
     
     return shapeWrapper;
 }
-// /*
-// Create world so that physics work
-// Create all bodies
-// */
-// Game.initPhysicalWorld = function () {
-//     this.world = new CANNON.World();
-//     console.log(this.sphere.geometry)
 
-//     this.sphereBody = this.addPhysicalBody(this.sphere, {mass: 1});
-// };
-
-/*
-Create a cannon js body from a mesh
-*/
 
 Game.addMovingBody = function (mesh, bodyOptions) {
     var shape;
@@ -207,7 +220,6 @@ Game.addMovingBody = function (mesh, bodyOptions) {
     else {
         mesh.geometry.computeBoundingBox();
         let box = mesh.geometry.boundingBox;
-        console.log(box)
         shape = new CANNON.Box(new CANNON.Vec3(
             (box.max.x - box.min.x) / 2,
             (box.max.y - box.min.y) / 2,
@@ -226,16 +238,13 @@ Game.addMovingBody = function (mesh, bodyOptions) {
     // keep a reference to the mesh so we can update its properties later
     body.mesh = mesh;
 
-    let material_ground = new CANNON.ContactMaterial(this.groundMaterial, material, { friction: 0.0, restitution: 0.7});
+    let material_ground = new CANNON.ContactMaterial(this.groundMaterial, material, { friction: 1.0, restitution: 0.1});
     this.world.addContactMaterial(material_ground);
     this.world.addBody(body);
     return body;
 };
 
 Game.addStaticBody = function(shapes){
-    //No se esta calculando el bounding box,
-    //no esta recibiendo valores la shape.position
-
     let body = new CANNON.Body({mass: 0, material: this.groundMaterial});
 
     shapes.forEach(shape => {
@@ -244,41 +253,10 @@ Game.addStaticBody = function(shapes){
     });
 
     body.computeAABB();
+    //body.angularVelocity.x = 5;
     this.world.add(body);
     return body;
 }
-
-/*Game.addStaticBody = function (mesh, bodyOptions) {
-    var shape;
-    // create a Sphere shape for spheres and thorus knots,
-    // a Box shape otherwise
-    
-    mesh.geometry.computeBoundingBox();
-    let box = mesh.geometry.boundingBox;
-    console.log(box)
-    shape = new CANNON.Box(new CANNON.Vec3(
-        (box.max.x - box.min.x) / 2,
-        (box.max.y - box.min.y) / 2,
-        (box.max.z - box.min.z) / 2,
-    ));
-    
-    let material = this.groundMaterial;
-    bodyOptions.material = material;
-    let body = new CANNON.Body(bodyOptions);
-    body.addShape(shape);
-    body.position.x = mesh.position.x;
-    body.position.y = mesh.position.y;
-    body.position.z = mesh.position.z;
-    body.computeAABB();
-    // keep a reference to the mesh so we can update its properties later
-    body.mesh = mesh;
-    
-    // Copy floor rotation
-    body.quaternion.copy(mesh.quaternion);
-    this.world.addBody(body);
-    this.staticBodies.push(body);
-    return body;
-};*/
 
 Game.tick = function (elapsed) {
     window.requestAnimationFrame(this.tick);
@@ -304,22 +282,48 @@ Game.update = function (delta) {
     
 
     // Manage tilts
-    sensitivity = 60
+    let lateralSensitivity = 600;
+    let lateralAngle = Math.PI / lateralSensitivity;
+    
+    let frontalSensitivity = lateralSensitivity * 2;
+    let frontalCalc = frontalSensitivity * Math.abs(this.sphere.position.z)/100
+    frontalSensitivity = Math.max(frontalCalc, frontalSensitivity);
+    let frontalAngle = Math.PI / frontalSensitivity;
+    
+
     if(tiltForward){
-        this.groundGroup.rotation.x -= Math.PI / sensitivity;
+        this.groundGroup.rotation.x -= frontalAngle;
+    }
+    else{
+        if(this.groundGroup.rotation.x < 0){
+            this.groundGroup.rotation.x += frontalAngle;
+        }
     }
     if(tiltBackward){
-        this.groundGroup.rotation.x += Math.PI / sensitivity;
+        this.groundGroup.rotation.x += frontalAngle;
+    }
+    else{
+        if(this.groundGroup.rotation.x > 0){
+            this.groundGroup.rotation.x -= frontalAngle;
+        }
     }
     if(tiltLeft){
-        this.groundGroup.rotation.z += Math.PI / sensitivity;
+        this.groundGroup.rotation.z += lateralAngle;
+    }
+    else{
+        if(this.groundGroup.rotation.z > 0){
+            this.groundGroup.rotation.z -= lateralAngle;
+        }
     }
     if(tiltRight){
-        this.groundGroup.rotation.z -= Math.PI / sensitivity;
+        this.groundGroup.rotation.z -= lateralAngle;
+    }
+    else{
+        if(this.groundGroup.rotation.z < 0){
+            this.groundGroup.rotation.z += lateralAngle;
+        }
     }
     this.groundBody.quaternion.copy(this.groundGroup.quaternion)
-    //this.groundBody.angularVelocity.x = Math.PI / 4;
-    //this.groundBody.quaternion.setFromAxisAngle( new CANNON.Vec3(1,0,0), Math.PI / 18);
 };
 
 window.onload = function () {
