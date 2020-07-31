@@ -71,13 +71,12 @@ Game.load3dModel = function(objModelUrl, mtlModelUrl){
     mtlLoader = new THREE.MTLLoader();
     mtlLoader.load(mtlModelUrl, materials =>{
         materials.preload();
-        console.log(materials);
-
         objLoader = new THREE.OBJLoader();
         
         objLoader.setMaterials(materials);
 
         objLoader.load(objModelUrl, object=>{
+            this.monkeyLoaded = true;
             this.monkey = object;
             object.rotation.x = - Math.PI / 2;
             object.scale.set(0.1, 0.1, 0.1);
@@ -94,9 +93,14 @@ Game.init = function() {
     this.canvas = document.getElementById("canvas");
     this.canvas.width = WIDTH;
     this.canvas.height = HEIGHT;
+    this._previousElapsed = 0; //For tick
+    //Renderer settings
     this.renderer = new THREE.WebGLRenderer({canvas: canvas});
-    this._previousElapsed = 0;
     this.renderer.setViewport(0, 0, WIDTH, HEIGHT);
+    // Turn on shadows
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.BasicShadowMap;
+    
 
     // create the scene
     this.scene = new THREE.Scene();
@@ -129,20 +133,26 @@ Game.init = function() {
     //Create ground and add it to the scene
     this.ground = new THREE.Mesh(new THREE.BoxGeometry(100, 400, 3), material);
     this.ground.rotation.x = -Math.PI / 2;
-    console.log(this.ground)
     this.groundGroup = new THREE.Group()
     this.groundGroup.add(this.ground)
+    //Set up shadows for ground
+    this.ground.castShadow = true;
+    this.ground.receiveShadow = true;
 
 
     //Create  player and add it to the scene
     let sphereTexture = new THREE.TextureLoader().load("../assets/ball.png");
     this.sphere = new THREE.Mesh(new THREE.SphereGeometry( 8, 32, 32 ),
-    new THREE.MeshPhongMaterial({map: sphereTexture, transparent: true, opacity: 0.8}));
+    new THREE.MeshPhongMaterial({map: sphereTexture, transparent: true, opacity: 0.6}));
     this.scene.add(this.sphere);
     this.sphere.position.y = 3.1;
     this.sphere.position.z = -150;
+    //Set up shadows for ground
+    this.sphere.castShadow = true;
+    this.sphere.receiveShadow = true;
 
     //Load monkey
+    this.monkeyLoaded = false;
     this.load3dModel("../assets/monkeyObj.obj", "../assets/monkeyMtl.mtl");
 
 
@@ -156,20 +166,18 @@ Game.init = function() {
     this.obstacles.push(this.createObstacleMesh(20, 4, -40, 60, 5, 30));
 
     //Add light
-    let spotlight = new THREE.SpotLight(0xaaaaaa);
+    let spotlight = new THREE.SpotLight(0xffffff);
     this.spotlight = spotlight;
-    spotlight.shadow.mapSize.width = 1024;
-    spotlight.shadow.mapSize.height = 1024;
+    spotlight.shadow.mapSize.width = 4096;
+    spotlight.shadow.mapSize.height = 4096;
     spotlight.shadow.camera.near = 500;
-    spotlight.shadow.camera.far = 4000;
+    spotlight.shadow.camera.far = 1000;
     spotlight.shadow.camera.fov = 30;
     // let spotlightHelper = new THREE.SpotLightHelper(spotlight, 0x000000);
     // this.scene.add( spotlightHelper );
     spotlight.position.set(0, 600, -300);
     spotlight.rotation.x = -Math.PI / 4;
-    spotlight.power = 2.0 * Math.PI;
     spotlight.castShadow = true;
-    console.log("spotlight", spotlight)
     this.scene.add(spotlight);
 
     //Event listeners for controls
@@ -190,7 +198,6 @@ Game.init = function() {
         this.ground,
         ...this.obstacles,
     ];
-    console.log(groundMeshes)
     this.initPhysicalWorld(groundMeshes);
     
     window.requestAnimationFrame(this.tick);
@@ -203,6 +210,9 @@ Game.createObstacleMesh = function(px, py, pz, bx, by, bz) {
     obstacleMesh.position.x = px;
     obstacleMesh.position.y = py;
     obstacleMesh.position.z = pz;
+    //Set up shadows for mesh
+    obstacleMesh.castShadow = true;
+    obstacleMesh.receiveShadow = true;
     return obstacleMesh;
 }
 Game.initPhysicalWorld = function(groundMeshes){
@@ -284,7 +294,6 @@ Game.addStaticBody = function(shapes){
     let body = new CANNON.Body({mass: 0, material: this.groundMaterial});
 
     shapes.forEach(shape => {
-        console.log(shape.position)
         body.addShape(shape.shape, shape.position, shape.quaternion);
     });
 
@@ -317,8 +326,10 @@ Game.update = function (delta) {
     this.sphere.position.copy(this.sphereBody.position);
     this.sphere.quaternion.copy(this.sphereBody.quaternion);
 
-    this.monkey.position.copy(this.sphere.position);
-    this.monkey.position.y -= 5;
+    if(this.monkeyLoaded){
+        this.monkey.position.copy(this.sphere.position);
+        this.monkey.position.y -= 5;
+    }
 
     // Sync camera position with sphere
     this.camera.position.z = this.sphere.position.z + 100;
