@@ -65,6 +65,28 @@ function onKeyUp( event ) {
 }
 
 /*
+Helper function for loading OBJ models
+*/
+Game.load3dModel = function(objModelUrl, mtlModelUrl){
+    mtlLoader = new THREE.MTLLoader();
+    mtlLoader.load(mtlModelUrl, materials =>{
+        materials.preload();
+        console.log(materials);
+
+        objLoader = new THREE.OBJLoader();
+        
+        objLoader.setMaterials(materials);
+
+        objLoader.load(objModelUrl, object=>{
+            this.monkey = object;
+            object.rotation.x = - Math.PI / 2;
+            object.scale.set(0.1, 0.1, 0.1);
+            this.scene.add(object);
+        });
+    });
+}
+
+/*
 Fetch canvas, create camera and scene and initial meshes
 */
 Game.init = function() {
@@ -85,15 +107,9 @@ Game.init = function() {
     this.camera.position.y = 100;
     this.camera.position.x = 0;
     this.scene.add(this.camera);
-    //this.camera.rotation.set(-Math.PI/8, 0, 0);
 
     //Add orbit controls
     orbitControls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-
-    //Add light
-    let sunlight = new THREE.AmbientLight( 0xffffff, 1,1000);
-    sunlight.position.set(0, 10, 0);
-    this.scene.add(sunlight);
 
     //Add sky
     let bgTexture = new THREE.TextureLoader().load("../assets/sky.jpeg");
@@ -105,14 +121,13 @@ Game.init = function() {
     texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set( 8, 16 );
 
-    let material = new THREE.MeshPhongMaterial({ map: texture});
+    let material = new THREE.MeshLambertMaterial({map: texture});
 
     //Set ground bump map
     material.normalMap = new THREE.TextureLoader().load("../assets/grassNormal.jpeg");  
 
     //Create ground and add it to the scene
-    this.ground = new THREE.Mesh(new THREE.BoxGeometry(100, 400, 3),
-    material);
+    this.ground = new THREE.Mesh(new THREE.BoxGeometry(100, 400, 3), material);
     this.ground.rotation.x = -Math.PI / 2;
     console.log(this.ground)
     this.groundGroup = new THREE.Group()
@@ -120,11 +135,15 @@ Game.init = function() {
 
 
     //Create  player and add it to the scene
-    this.sphere = new THREE.Mesh(new THREE.SphereGeometry( 4, 32, 32 ),
-    new THREE.MeshBasicMaterial({color: 0x000000}));
+    let sphereTexture = new THREE.TextureLoader().load("../assets/ball.png");
+    this.sphere = new THREE.Mesh(new THREE.SphereGeometry( 8, 32, 32 ),
+    new THREE.MeshPhongMaterial({map: sphereTexture, transparent: true, opacity: 0.8}));
     this.scene.add(this.sphere);
     this.sphere.position.y = 3.1;
     this.sphere.position.z = -150;
+
+    //Load monkey
+    this.load3dModel("../assets/monkeyObj.obj", "../assets/monkeyMtl.mtl");
 
 
     //Create bodies
@@ -135,6 +154,23 @@ Game.init = function() {
     this.obstacles = []
     this.obstacles.push(this.createObstacleMesh(-20, 4, -120, 60, 5, 30));
     this.obstacles.push(this.createObstacleMesh(20, 4, -40, 60, 5, 30));
+
+    //Add light
+    let spotlight = new THREE.SpotLight(0xaaaaaa);
+    this.spotlight = spotlight;
+    spotlight.shadow.mapSize.width = 1024;
+    spotlight.shadow.mapSize.height = 1024;
+    spotlight.shadow.camera.near = 500;
+    spotlight.shadow.camera.far = 4000;
+    spotlight.shadow.camera.fov = 30;
+    // let spotlightHelper = new THREE.SpotLightHelper(spotlight, 0x000000);
+    // this.scene.add( spotlightHelper );
+    spotlight.position.set(0, 600, -300);
+    spotlight.rotation.x = -Math.PI / 4;
+    spotlight.power = 2.0 * Math.PI;
+    spotlight.castShadow = true;
+    console.log("spotlight", spotlight)
+    this.scene.add(spotlight);
 
     //Event listeners for controls
     document.addEventListener( "keydown", onKeyDown, false );
@@ -278,11 +314,15 @@ Game.update = function (delta) {
     this.world.step(delta);
 
     // Sync sphere mesh with body
-    this.sphere.position.copy(this.sphereBody.position)
+    this.sphere.position.copy(this.sphereBody.position);
+    this.sphere.quaternion.copy(this.sphereBody.quaternion);
+
+    this.monkey.position.copy(this.sphere.position);
+    this.monkey.position.y -= 5;
 
     // Sync camera position with sphere
-    this.camera.position.z = this.sphere.position.z + 200;
-    this.camera.position.y = this.sphere.position.y + 100;
+    this.camera.position.z = this.sphere.position.z + 100;
+    this.camera.position.y = this.sphere.position.y + 50;
     this.camera.position.x = this.sphere.position.x;
     this.camera.lookAt(this.sphere.position.x, this.sphere.position.y, this.sphere.position.z);
     
