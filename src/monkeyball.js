@@ -196,6 +196,10 @@ Game.init = function() {
     this.goal.position.y = 1.5;
     this.groundGroup.add(this.goal)
 
+    //Create barrel material
+    this.barrelTexture = new THREE.TextureLoader().load("../assets/barrel.jpg");
+    this.barrelMaterial = new THREE.MeshPhongMaterial({map: this.barrelTexture});
+
     //Add light
     let spotlight = new THREE.SpotLight(0xffffff);
     this.spotlight = spotlight;
@@ -259,6 +263,14 @@ Game.reset = function(){
     this.groundGroup.rotation.set(0, 0, 0);
     this.groundBody.quaternion.copy(this.groundGroup.quaternion);
     console.log(this.groundBody.quaternion);
+
+    //Destroy all barrels
+    for(let i = 0; i < this.barrelBodies.length; i++){
+        let barrelBody = this.barrelBodies[i];
+        let barrelMesh = this.barrelMeshes[i];
+        this.scene.remove(barrelMesh);
+        this.world.remove(barrelBody);
+    }
 }
 
 //Creates the phyisical world and initializes the bodies of the shapes within
@@ -322,13 +334,7 @@ Game.addMovingBody = function (mesh, bodyOptions, position) {
     else { //Remove if unused
         mesh.geometry.computeBoundingBox();
         let box = mesh.geometry.boundingBox;
-        shape = new CANNON.Cylinder(
-            // (box.max.x - box.min.x) / 2,
-            // (box.max.x - box.min.x) / 2,
-            // (box.max.y - box.min.y) / 2, 
-            // 15
-            5, 5, 10, 32
-        );
+        shape = new CANNON.Cylinder(5, 5, 10, 32);
     }
 
     //Make body position equal to the object position
@@ -384,7 +390,7 @@ Game.tick = function (elapsed) {
     this.update(delta);
     this.renderer.render(this.scene, this.camera);
     orbitControls.update();
-    this.debugRenderer.update();
+    //this.debugRenderer.update();
 }.bind(Game);
 
 //Updates game
@@ -400,8 +406,7 @@ Game.update = function (delta) {
     //Each 3 seconds create a barrel
     if(Math.floor(this.timestamp) % 4 == 3){
         //let cylinderTexture = new THREE.TextureLoader().load("../assets/ball.png");
-        let material = new THREE.MeshBasicMaterial( {color: 0xcccccc} );
-        let cylinder = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 10, 32), material);
+        let cylinder = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 10, 32), this.barrelMaterial);
         this.scene.add(cylinder);
 
         //Set up shadows for ground
@@ -437,10 +442,10 @@ Game.update = function (delta) {
     }
 
     // Sync camera position with sphere
-    // this.camera.position.z = this.sphere.position.z + 100;
-    // this.camera.position.y = this.sphere.position.y + 50;
-    // this.camera.position.x = this.sphere.position.x;
-    // this.camera.lookAt(this.sphere.position.x, this.sphere.position.y, this.sphere.position.z);
+    this.camera.position.z = this.sphere.position.z + 100;
+    this.camera.position.y = this.sphere.position.y + 50;
+    this.camera.position.x = this.sphere.position.x;
+    this.camera.lookAt(this.sphere.position.x, this.sphere.position.y, this.sphere.position.z);
     
 
     // Manage tilts
