@@ -81,11 +81,11 @@ Game.init = function() {
 
     // create a camera
     this.camera = new THREE.PerspectiveCamera( 45, this.canvas.width / this.canvas.height, 1, 4000 );
-    this.camera.position.z = 400;
-    this.camera.position.y = 300;
-    this.camera.position.x = 150;
+    this.camera.position.z = 300;
+    this.camera.position.y = 100;
+    this.camera.position.x = 0;
     this.scene.add(this.camera);
-    this.camera.rotation.set(-Math.PI/8, 0, 0);
+    //this.camera.rotation.set(-Math.PI/8, 0, 0);
 
     //Add orbit controls
     orbitControls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
@@ -276,9 +276,15 @@ Game.tick = function (elapsed) {
 Game.update = function (delta) {
     this.timestamp += delta;
     this.world.step(delta);
-    
-    // Sync meshes with bodies
+
+    // Sync sphere mesh with body
     this.sphere.position.copy(this.sphereBody.position)
+
+    // Sync camera position with sphere
+    this.camera.position.z = this.sphere.position.z + 200;
+    this.camera.position.y = this.sphere.position.y + 100;
+    this.camera.position.x = this.sphere.position.x;
+    this.camera.lookAt(this.sphere.position.x, this.sphere.position.y, this.sphere.position.z);
     
 
     // Manage tilts
