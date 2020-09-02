@@ -213,6 +213,7 @@ Game.init = function() {
     spotlight.power = 3.5;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+    this.scene.add(ambientLight);
     this.scene.add(spotlight);
 
     //Manage if player won
@@ -403,7 +404,6 @@ Game.update = function (delta) {
     this.timestamp += delta;
     this.world.step(delta);
 
-    console.log(this.spotlight)
     //Each 3 seconds create a barrel
     if(Math.floor(this.timestamp) % 4 == 3){
         //let cylinderTexture = new THREE.TextureLoader().load("../assets/ball.png");
