@@ -174,7 +174,6 @@ Game.init = function() {
     this.obstacleMaterial.normalMap = this.obstacleNormal;
     this.obstacleMaterial.bumpMap = this.obstacleBump;
     this.obstacleMaterial.bumpScale = 10000;
-    console.log(this.obstacleMaterial)
 
     //Initialize obstacles
     this.obstacles = [];
@@ -212,6 +211,8 @@ Game.init = function() {
     spotlight.rotation.x = -Math.PI / 4;
     spotlight.castShadow = true;
     spotlight.power = 3.5;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
     this.scene.add(spotlight);
 
     //Manage if player won
@@ -262,7 +263,6 @@ Game.reset = function(){
     //Create ground and add it to the scene
     this.groundGroup.rotation.set(0, 0, 0);
     this.groundBody.quaternion.copy(this.groundGroup.quaternion);
-    console.log(this.groundBody.quaternion);
 
     //Destroy all barrels
     for(let i = 0; i < this.barrelBodies.length; i++){
@@ -403,6 +403,7 @@ Game.update = function (delta) {
     this.timestamp += delta;
     this.world.step(delta);
 
+    console.log(this.spotlight)
     //Each 3 seconds create a barrel
     if(Math.floor(this.timestamp) % 4 == 3){
         //let cylinderTexture = new THREE.TextureLoader().load("../assets/ball.png");
