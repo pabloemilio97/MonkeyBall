@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+    <title>Monkey Ball</title>
+    <style>
+        body { margin: 0;}
+        canvas {width: 80%; height: 80%;}
+    </style>
+    <meta charset="utf-8">
+    <script src="./libs/three.js/three.min.js"></script>
+    <script src="./libs/cannon.js/cannon.min.js"></script>
+    <script src="./libs/cannon.js/CannonDebugRenderer.js"></script>
+    <script src="./libs/three.js/controls/OrbitControls.js"></script>
+    <script src="./libs/three.js/loaders/OBJLoader.js"></script>
+    <script src="./libs/three.js/loaders/MTLLoader.js"></script>
+    <script src="src/monkeyball.js"></script>
+</head>
+<body>
+
+<p>Move with WASD, reset with Spacebar.</p>
+<p>Reach the goal!</p>
+<div class="canvas-wrapper">
+    <canvas id="canvas"></canvas>
+</div><!-- canvas wrapper -->
+
+</body>
+</html>
