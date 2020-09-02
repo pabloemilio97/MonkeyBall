@@ -212,8 +212,6 @@ Game.init = function() {
     spotlight.castShadow = true;
     spotlight.power = 3.5;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
-    this.scene.add(ambientLight);
     this.scene.add(spotlight);
 
     //Manage if player won
@@ -391,7 +389,7 @@ Game.tick = function (elapsed) {
     this.update(delta);
     this.renderer.render(this.scene, this.camera);
     orbitControls.update();
-    //this.debugRenderer.update();
+    this.debugRenderer.update();
 }.bind(Game);
 
 //Updates game
